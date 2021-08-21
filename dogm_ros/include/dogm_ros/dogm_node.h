@@ -27,6 +27,7 @@ SOFTWARE.
 #include <sensor_msgs/LaserScan.h>
 #include <dogm/dogm.h>
 #include <dogm/dogm_types.h>
+#include <mapping/laser_to_meas_grid.h>
 
 namespace dogm_ros
 {
@@ -47,13 +48,14 @@ private:
 	ros::Subscriber subscriber_;
 	ros::Publisher publisher_;
 	
-	dogm::GridParams params_;
-	dogm::LaserSensorParams laser_params_;
+	dogm::DOGM::Params params_;
+	LaserMeasurementGrid::Params laser_params_;
 	
 	float last_time_stamp_;
 	bool is_first_measurement_;
 	
 	boost::shared_ptr<dogm::DOGM> grid_map_;
+	boost::shared_ptr<LaserMeasurementGrid> grid_generator_;
 };
 
 } // namespace dogm_ros

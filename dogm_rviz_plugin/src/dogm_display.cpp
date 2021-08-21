@@ -30,12 +30,6 @@
  */
 #include "dogm_rviz_plugin/dogm_display.h"
 
-#include <OGRE/OgreManualObject.h>
-#include <OGRE/OgreMaterialManager.h>
-#include <OGRE/OgreSceneManager.h>
-#include <OGRE/OgreSceneNode.h>
-#include <OGRE/OgreTextureManager.h>
-
 #include <ros/ros.h>
 
 #include <tf/transform_listener.h>

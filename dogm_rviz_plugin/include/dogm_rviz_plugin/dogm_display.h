@@ -31,6 +31,12 @@
 #pragma once
 
 #ifndef Q_MOC_RUN
+#include <OGRE/OgreManualObject.h>
+#include <OGRE/OgreMaterialManager.h>
+#include <OGRE/OgreSceneManager.h>
+#include <OGRE/OgreSceneNode.h>
+#include <OGRE/OgreTextureManager.h>
+
 #include <dogm_msgs/DynamicOccupancyGrid.h>
 #include <rviz/message_filter_display.h>
 #endif

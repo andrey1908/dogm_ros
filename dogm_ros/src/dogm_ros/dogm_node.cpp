@@ -43,20 +43,23 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 	private_nh_.param("publish/dogm_topic", publish_topic, std::string("/dogm/map"));
 
 	private_nh_.param("map/size", params_.size, 50.0f);
-	private_nh_.param("map/resolution", params_.resolution, 0.1f);
-	private_nh_.param("particles/particle_count", params_.particle_count, 20000);
-	private_nh_.param("particles/new_born_particle_count", params_.new_born_particle_count, 2000);
+	private_nh_.param("map/resolution", params_.resolution, 0.2f);
+	private_nh_.param("particles/particle_count", params_.particle_count, 3 * static_cast<int>(10e5));
+	private_nh_.param("particles/new_born_particle_count", params_.new_born_particle_count, 3 * static_cast<int>(10e4));
 	private_nh_.param("particles/persistence_probability", params_.persistence_prob, 0.99f);
-	private_nh_.param("particles/process_noise_position", params_.process_noise_position, 0.02f);
-	private_nh_.param("particles/process_noise_velocity", params_.process_noise_velocity, 0.8f);
+	private_nh_.param("particles/process_noise_position", params_.stddev_process_noise_position, 0.1f);
+	private_nh_.param("particles/process_noise_velocity", params_.stddev_process_noise_velocity, 1.0f);
 	private_nh_.param("particles/birth_probability", params_.birth_prob, 0.02f);
-	private_nh_.param("particles/velocity_persistent", params_.velocity_persistent, 12.0f);
-	private_nh_.param("particles/velocity_birth", params_.velocity_birth, 12.0f);
+	private_nh_.param("particles/velocity_persistent", params_.stddev_velocity, 30.0f);
+	private_nh_.param("particles/velocity_birth", params_.init_max_velocity, 30.0f);
 
 	private_nh_.param("laser/fov", laser_params_.fov, 120.0f);
 	private_nh_.param("laser/max_range", laser_params_.max_range, 50.0f);
+	laser_params_.resolution = params_.resolution;  // TODO make independent of grid_params.resolution
 	
-	grid_map_.reset(new dogm::DOGM(params_, laser_params_));
+	grid_map_.reset(new dogm::DOGM(params_));
+
+	grid_generator_.reset(new LaserMeasurementGrid(laser_params_, params_.size, params_.resolution));
 	
 	is_first_measurement_ = true;
 	
@@ -68,16 +71,17 @@ void DOGMRos::process(const sensor_msgs::LaserScan::ConstPtr& scan)
 {
 	float time_stamp = scan->header.stamp.toSec();
 	
-	grid_map_->updateMeasurementGrid(const_cast<float*>(scan->ranges.data()), scan->ranges.size());
+	dogm::MeasurementCell* meas_grid = grid_generator_->generateGrid(std::vector<float>(scan->ranges.data(),
+			scan->ranges.data() + scan->ranges.size()));
 	
 	if (!is_first_measurement_)
 	{
 		float dt = time_stamp - last_time_stamp_;
-		grid_map_->updateParticleFilter(dt);
+		grid_map_->updateGrid(meas_grid, 0, 0, 0, dt);
 	}
 	else
 	{
-		grid_map_->updateParticleFilter(0.0f);
+		grid_map_->updateGrid(meas_grid, 0, 0, 0, 0);
 		is_first_measurement_ = false;
 	}
 	

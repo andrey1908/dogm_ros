@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
 )
 
-find_package(DOGM REQUIRED)
+find_package(dogm REQUIRED)
 
 ###################################
 ## catkin specific configuration ##
