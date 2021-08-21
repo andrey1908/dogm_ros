@@ -7,6 +7,8 @@
 #include <ros/ros.h>
 #include <nav_msgs/OccupancyGrid.h>
 
+#include <vector>
+
 namespace dogm_ros
 {
 

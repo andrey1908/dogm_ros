@@ -14,6 +14,7 @@ DOGMRosConverter::~DOGMRosConverter()
 void DOGMRosConverter::toDOGMMessage(const dogm::DOGM& dogm, dogm_msgs::DynamicOccupancyGrid& message)
 {
   message.header.stamp = ros::Time::now();
+  message.header.frame_id = "velodyne";
   message.info.resolution = dogm.getResolution();
   message.info.length = dogm.getGridSize() * dogm.getResolution();
   message.info.size = dogm.getGridSize();
@@ -28,10 +29,11 @@ void DOGMRosConverter::toDOGMMessage(const dogm::DOGM& dogm, dogm_msgs::DynamicO
   message.data.clear();
   message.data.resize(dogm.getGridSize() * dogm.getGridSize());
 
+  std::vector<dogm::GridCell> grid_cell_array = dogm.getGridCells();
   #pragma omp parallel for
   for (int i = 0; i < message.data.size(); i++)
   {
-    dogm::GridCell& cell = dogm.grid_cell_array[i];
+    const dogm::GridCell& cell = grid_cell_array[i];
 
     message.data[i].free_mass = cell.free_mass;
     message.data[i].occ_mass = cell.occ_mass;
