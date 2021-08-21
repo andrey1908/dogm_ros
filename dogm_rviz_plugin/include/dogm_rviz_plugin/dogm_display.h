@@ -69,14 +69,14 @@ public:
   virtual void onInitialize();
   virtual void fixedFrameChanged();
   virtual void reset();
-  virtual void update( float wall_dt, float ros_dt );
+  //virtual void update( float wall_dt, float ros_dt );
 
   float getResolution() { return resolution_; }
   int getSize() { return size_; }
 
 protected Q_SLOTS:
   void updateAlpha();
-  void updateTopic();
+  //void updateTopic();
   void updateDrawUnder();
 
 protected:
