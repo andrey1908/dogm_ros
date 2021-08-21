@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(dogm REQUIRED)
 
+find_package(time_measurer REQUIRED)
+
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -46,6 +48,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${DOGM_INCLUDE_DIRS}
+  ${time_measurer_INCLUDE_DIRS}
 )
 
 ## Declare a cpp library
@@ -57,6 +60,7 @@ add_library(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${DOGM_LIBRARIES}
+  ${time_measurer_LIBRARIES}
 )
 
 add_dependencies(${PROJECT_NAME}

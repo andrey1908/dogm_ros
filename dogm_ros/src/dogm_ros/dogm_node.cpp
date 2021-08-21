@@ -30,6 +30,8 @@ SOFTWARE.
 
 #include <dogm_msgs/DynamicOccupancyGrid.h>
 
+#include "time_measurer.h"
+
 namespace dogm_ros
 {
 
@@ -71,9 +73,12 @@ void DOGMRos::process(const sensor_msgs::LaserScan::ConstPtr& scan)
 {
 	float time_stamp = scan->header.stamp.toSec();
 	
+	MEASURE_TIME_FROM_HERE(LaserScan2StaticMap);
 	dogm::MeasurementCell* meas_grid = grid_generator_->generateGrid(std::vector<float>(scan->ranges.data(),
 			scan->ranges.data() + scan->ranges.size()));
+	STOP_TIME_MESUREMENT(LaserScan2StaticMap);
 	
+	MEASURE_TIME_FROM_HERE(UpdateDynamicMap);
 	if (!is_first_measurement_)
 	{
 		float dt = time_stamp - last_time_stamp_;
@@ -84,9 +89,12 @@ void DOGMRos::process(const sensor_msgs::LaserScan::ConstPtr& scan)
 		grid_map_->updateGrid(meas_grid, 0, 0, 0, 0);
 		is_first_measurement_ = false;
 	}
+	STOP_TIME_MESUREMENT(UpdateDynamicMap);
 	
+	MEASURE_TIME_FROM_HERE(DynamicMap2ROSMessage);
 	dogm_msgs::DynamicOccupancyGrid message;
     dogm_ros::DOGMRosConverter::toDOGMMessage(*grid_map_, message);
+	STOP_TIME_MESUREMENT(DynamicMap2ROSMessage);
     
 	publisher_.publish(message);
 	

@@ -14,4 +14,6 @@
   <depend>dogm_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
+  
+  <depend>time_measurer</depend>
 </package>
