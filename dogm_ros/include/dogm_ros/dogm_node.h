@@ -24,10 +24,15 @@ SOFTWARE.
 #pragma once
 
 #include <ros/ros.h>
+#include <tf2_ros/transform_listener.h>
 #include <sensor_msgs/LaserScan.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <nav_msgs/OccupancyGrid.h>
 #include <dogm/dogm.h>
 #include <dogm/dogm_types.h>
 #include <mapping/laser_to_meas_grid.h>
+#include <vector>
+#include <Eigen/Dense>
 
 namespace dogm_ros
 {
@@ -39,7 +44,7 @@ public:
 	
 	virtual ~DOGMRos() = default;
 	
-	void process(const sensor_msgs::LaserScan::ConstPtr& scan);
+	void process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid);
 	
 private:
 	ros::NodeHandle nh_;
@@ -53,9 +58,15 @@ private:
 	
 	float last_time_stamp_;
 	bool is_first_measurement_;
+	int length_in_cells_;
+
+	std::vector<dogm::MeasurementCell> meas_grid_;
 	
 	boost::shared_ptr<dogm::DOGM> grid_map_;
 	boost::shared_ptr<LaserMeasurementGrid> grid_generator_;
+
+	tf2_ros::Buffer tf_buffer_;
+	tf2_ros::TransformListener tf_listener_;
 };
 
 } // namespace dogm_ros

@@ -11,11 +11,15 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   nav_msgs
   std_msgs
+  tf2
+  tf2_ros
 )
 
 find_package(dogm REQUIRED)
 
 find_package(time_measurer REQUIRED)
+
+find_package(Eigen3 REQUIRED)
 
 ###################################
 ## catkin specific configuration ##
@@ -49,6 +53,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${DOGM_INCLUDE_DIRS}
   ${time_measurer_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 ## Declare a cpp library
