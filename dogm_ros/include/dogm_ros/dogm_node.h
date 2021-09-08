@@ -44,10 +44,11 @@ class DOGMRos
 {
 public:
 	DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh);
-	
 	virtual ~DOGMRos() = default;
-	
 	void process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid);
+
+private:
+	void projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid);
 	
 private:
 	ros::NodeHandle nh_;
@@ -57,15 +58,12 @@ private:
 	ros::Publisher publisher_;
 	
 	dogm::DOGM::Params params_;
-	LaserMeasurementGrid::Params laser_params_;
 	
 	ros::Time last_time_stamp_;
 	bool is_first_measurement_;
-
-	std::vector<dogm::MeasurementCell> meas_grid_;
 	
 	boost::shared_ptr<dogm::DOGM> grid_map_;
-	boost::shared_ptr<LaserMeasurementGrid> grid_generator_;
+	std::vector<dogm::MeasurementCell> meas_grid_;
 
 	tf2_ros::Buffer tf_buffer_;
 	tf2_ros::TransformListener tf_listener_;

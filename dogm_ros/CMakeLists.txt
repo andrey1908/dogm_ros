@@ -17,10 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(dogm REQUIRED)
-
 find_package(time_measurer REQUIRED)
-
 find_package(Eigen3 REQUIRED)
+find_package(OpenCV REQUIRED)
 
 ###################################
 ## catkin specific configuration ##
@@ -55,6 +54,7 @@ include_directories(
   ${DOGM_INCLUDE_DIRS}
   ${time_measurer_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a cpp library
@@ -67,6 +67,7 @@ target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${DOGM_LIBRARIES}
   ${time_measurer_LIBRARIES}
+  ${OpenCV_LIBS}
 )
 
 add_dependencies(${PROJECT_NAME}

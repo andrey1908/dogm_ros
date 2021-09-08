@@ -36,7 +36,7 @@ namespace dogm_ros
 {
 
 DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh) 
-	: nh_(nh), private_nh_(private_nh), tf_buffer_(), tf_listener_(tf_buffer_)
+	: nh_(nh), private_nh_(private_nh), tf_buffer_(), tf_listener_(tf_buffer_), is_first_measurement_(true)
 {
 	private_nh_.param("map/size", params_.size, 50.0f);
 	private_nh_.param("map/resolution", params_.resolution, 0.2f);
@@ -49,45 +49,61 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 	private_nh_.param("particles/velocity_persistent", params_.stddev_velocity, 30.0f);
 	private_nh_.param("particles/velocity_birth", params_.init_max_velocity, 30.0f);
 
-	private_nh_.param("laser/fov", laser_params_.fov, 120.0f);
-	private_nh_.param("laser/max_range", laser_params_.max_range, 50.0f);
-	laser_params_.resolution = params_.resolution;  // TODO make independent of grid_params.resolution
-
 	grid_map_.reset(new dogm::DOGM(params_));
-
 	meas_grid_.resize(grid_map_->grid_cell_count);
 
-	grid_generator_.reset(new LaserMeasurementGrid(laser_params_, params_.size, params_.resolution));
-	
-	is_first_measurement_ = true;
-	
-	// subscriber_ = nh_.subscribe("velodyne/scan", 1, &DOGMRos::process, this);
 	subscriber_ = nh_.subscribe("grid_map", 1, &DOGMRos::process, this);
-	publisher_ = nh_.advertise<dogm_msgs::DynamicOccupancyGrid>("dogm/map", 1);
+	publisher_ = nh_.advertise<dogm_msgs::DynamicOccupancyGrid>("dynamic_map", 1);
 }
 
 void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 {
+	MEASURE_TIME_FROM_HERE(OccupancyGrid2MeasurementGrid);
+	projectOccupancyGrid(occupancy_grid);
+	STOP_TIME_MESUREMENT(OccupancyGrid2MeasurementGrid);
+	
+	MEASURE_TIME_FROM_HERE(UpdateDynamicMap);
 	ros::Time time_stamp = occupancy_grid->header.stamp;
+	if (!is_first_measurement_)
+	{
+		float dt = (time_stamp - last_time_stamp_).toSec();
+		grid_map_->updateGrid(meas_grid_.data(), -params_.size / 2, -params_.size / 2, 0, dt, false);
+	}
+	else
+	{
+		grid_map_->updateGrid(meas_grid_.data(), -params_.size / 2, -params_.size / 2, 0, 0, false);
+		is_first_measurement_ = false;
+	}
+	last_time_stamp_ = time_stamp;
+	STOP_TIME_MESUREMENT(UpdateDynamicMap);
+	
+	MEASURE_TIME_FROM_HERE(DynamicMap2ROSMessage);
+	dogm_msgs::DynamicOccupancyGrid message;
+    dogm_ros::DOGMRosConverter::toDOGMMessage(*grid_map_, message);
+	STOP_TIME_MESUREMENT(DynamicMap2ROSMessage);
+    
+	publisher_.publish(message);
 
-	MEASURE_TIME_FROM_HERE(OccupancyGrid2StaticMap);
+	MEASURE_TIME_FROM_HERE(Visualization);
+	cv::Mat occupancy_image = grid_map_->getOccupancyImage();
+	grid_map_->drawVelocities(occupancy_image);
+	cv::namedWindow("occupancy_image", cv::WINDOW_NORMAL);
+	cv::imshow("occupancy_image", occupancy_image);
+	cv::waitKey(1);
+	STOP_TIME_MESUREMENT(Visualization);
+}
+
+void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid) {
 	geometry_msgs::TransformStamped robot_pose;
-    try {
-    	robot_pose = tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, "base_link", ros::Time(0), ros::Duration(0.2));
-    }
-    catch (tf2::TransformException &ex) {
-		ROS_WARN("%s", ex.what());
-		exit(0);
-    }
-
+    robot_pose = tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, "base_link", ros::Time(0), ros::Duration(0.2));
 	Eigen::Isometry3d eigen_robot_pose = tf2::transformToEigen(robot_pose);
 
-	geometry_msgs::Transform trans;
-	trans.rotation = occupancy_grid->info.origin.orientation;
-	trans.translation.x = occupancy_grid->info.origin.position.x;
-	trans.translation.y = occupancy_grid->info.origin.position.y;
-	trans.translation.z = occupancy_grid->info.origin.position.z;
-	Eigen::Isometry3d eigen_grid_pose = tf2::transformToEigen(trans);
+	geometry_msgs::Transform grid_pose;
+	grid_pose.rotation = occupancy_grid->info.origin.orientation;
+	grid_pose.translation.x = occupancy_grid->info.origin.position.x;
+	grid_pose.translation.y = occupancy_grid->info.origin.position.y;
+	grid_pose.translation.z = occupancy_grid->info.origin.position.z;
+	Eigen::Isometry3d eigen_grid_pose = tf2::transformToEigen(grid_pose);
 
 	Eigen::Isometry3d grid_to_robot = eigen_grid_pose.inverse() * eigen_robot_pose;
 	
@@ -117,69 +133,12 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 				meas_grid_[meas_idx].occ_mass = 0.00001;
 			} else {
 				meas_grid_[meas_idx].free_mass = 0.00001;
-				meas_grid_[meas_idx].occ_mass = occ / 100;
+				meas_grid_[meas_idx].occ_mass = 0.95;
 			}
 			meas_grid_[meas_idx].likelihood = 1.0f;
 			meas_grid_[meas_idx].p_A = 1.0f;
 		}
 	}
-	STOP_TIME_MESUREMENT(OccupancyGrid2StaticMap);
-	
-	MEASURE_TIME_FROM_HERE(UpdateDynamicMap);
-	if (!is_first_measurement_)
-	{
-		float dt = (time_stamp - last_time_stamp_).toSec();
-		grid_map_->updateGrid(meas_grid_.data(), -params_.size / 2, -params_.size / 2, 0, dt, false);
-	}
-	else
-	{
-		grid_map_->updateGrid(meas_grid_.data(), -params_.size / 2, -params_.size / 2, 0, 0, false);
-		is_first_measurement_ = false;
-	}
-	STOP_TIME_MESUREMENT(UpdateDynamicMap);
-	
-	MEASURE_TIME_FROM_HERE(DynamicMap2ROSMessage);
-	dogm_msgs::DynamicOccupancyGrid message;
-    dogm_ros::DOGMRosConverter::toDOGMMessage(*grid_map_, message);
-	STOP_TIME_MESUREMENT(DynamicMap2ROSMessage);
-    
-	publisher_.publish(message);
-	
-	last_time_stamp_ = time_stamp;
 }
-
-/*
-void DOGMRos::process(const sensor_msgs::LaserScan::ConstPtr& scan)
-{
-	float time_stamp = scan->header.stamp.toSec();
-	
-	MEASURE_TIME_FROM_HERE(LaserScan2StaticMap);
-	dogm::MeasurementCell* meas_grid = grid_generator_->generateGrid(std::vector<float>(scan->ranges.data(),
-			scan->ranges.data() + scan->ranges.size()));
-	STOP_TIME_MESUREMENT(LaserScan2StaticMap);
-	
-	MEASURE_TIME_FROM_HERE(UpdateDynamicMap);
-	if (!is_first_measurement_)
-	{
-		float dt = time_stamp - last_time_stamp_;
-		grid_map_->updateGrid(meas_grid, -10, -10, 0, dt);
-	}
-	else
-	{
-		grid_map_->updateGrid(meas_grid, -10, -10, 0, 0);
-		is_first_measurement_ = false;
-	}
-	STOP_TIME_MESUREMENT(UpdateDynamicMap);
-	
-	MEASURE_TIME_FROM_HERE(DynamicMap2ROSMessage);
-	dogm_msgs::DynamicOccupancyGrid message;
-    dogm_ros::DOGMRosConverter::toDOGMMessage(*grid_map_, message);
-	STOP_TIME_MESUREMENT(DynamicMap2ROSMessage);
-    
-	publisher_.publish(message);
-	
-	last_time_stamp_ = time_stamp;
-}
-*/
 
 } // namespace dogm_ros
