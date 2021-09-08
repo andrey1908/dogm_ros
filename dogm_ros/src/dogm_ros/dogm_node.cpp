@@ -53,11 +53,9 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 	private_nh_.param("laser/max_range", laser_params_.max_range, 50.0f);
 	laser_params_.resolution = params_.resolution;  // TODO make independent of grid_params.resolution
 
-	length_in_cells_ = static_cast<int>(params_.size / params_.resolution);
-	int num_grid_cells = length_in_cells_ * length_in_cells_;
-	meas_grid_.resize(num_grid_cells);
-	
 	grid_map_.reset(new dogm::DOGM(params_));
+
+	meas_grid_.resize(grid_map_->grid_cell_count);
 
 	grid_generator_.reset(new LaserMeasurementGrid(laser_params_, params_.size, params_.resolution));
 	
@@ -93,17 +91,17 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 
 	Eigen::Isometry3d grid_to_robot = eigen_grid_pose.inverse() * eigen_robot_pose;
 	
-	for (int x = 0; x < length_in_cells_; x++) {
-		for (int y = 0; y < length_in_cells_; y++) {
-			double robot_x = x - length_in_cells_ / 2. + 0.5;
-			double robot_y = y - length_in_cells_ / 2. + 0.5;
+	for (int x = 0; x < grid_map_->grid_size; x++) {
+		for (int y = 0; y < grid_map_->grid_size; y++) {
+			double robot_x = x - grid_map_->grid_size / 2. + 0.5;
+			double robot_y = y - grid_map_->grid_size / 2. + 0.5;
 			robot_x *= params_.resolution;
 			robot_y *= params_.resolution;
 			Eigen::Vector3d robot_coord = {robot_x, robot_y, 0};
 			Eigen::Vector3d grid_coord = grid_to_robot * robot_coord;
 			int grid_x = static_cast<int>(grid_coord(0) / occupancy_grid->info.resolution);
 			int grid_y = static_cast<int>(grid_coord(1) / occupancy_grid->info.resolution);
-			int meas_idx = x + y * length_in_cells_;
+			int meas_idx = x + y * grid_map_->grid_size;
 			if (grid_x < 0 || grid_y < 0 || grid_x >= occupancy_grid->info.width || grid_y >= occupancy_grid->info.height) {
 				meas_grid_[meas_idx].free_mass = 0.00001;
 				meas_grid_[meas_idx].occ_mass = 0.00001;

@@ -61,7 +61,6 @@ private:
 	
 	ros::Time last_time_stamp_;
 	bool is_first_measurement_;
-	int length_in_cells_;
 
 	std::vector<dogm::MeasurementCell> meas_grid_;
 	
