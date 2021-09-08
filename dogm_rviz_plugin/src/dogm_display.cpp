@@ -84,7 +84,7 @@ DOGMDisplay::DOGMDisplay()
                                                        this);
   orientation_property_->setReadOnly(true);
 
-  occ_property_ = new rviz::FloatProperty("Occupancy threshold", 1.0,
+  occ_property_ = new rviz::FloatProperty("Occupancy threshold", 0.6,
                                           "Occupancy amount at which object is considered dynamic.",
                                           this);
   occ_property_->setMin(0.0f);
