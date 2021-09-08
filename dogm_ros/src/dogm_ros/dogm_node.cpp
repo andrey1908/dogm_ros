@@ -70,7 +70,7 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 
 void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 {
-	float time_stamp = occupancy_grid->header.stamp.toSec();
+	ros::Time time_stamp = occupancy_grid->header.stamp;
 
 	MEASURE_TIME_FROM_HERE(OccupancyGrid2StaticMap);
 	geometry_msgs::TransformStamped robot_pose;
@@ -130,7 +130,7 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 	MEASURE_TIME_FROM_HERE(UpdateDynamicMap);
 	if (!is_first_measurement_)
 	{
-		float dt = time_stamp - last_time_stamp_;
+		float dt = (time_stamp - last_time_stamp_).toSec();
 		grid_map_->updateGrid(meas_grid_.data(), -params_.size / 2, -params_.size / 2, 0, dt, false);
 	}
 	else

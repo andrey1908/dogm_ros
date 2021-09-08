@@ -59,7 +59,7 @@ private:
 	dogm::DOGM::Params params_;
 	LaserMeasurementGrid::Params laser_params_;
 	
-	float last_time_stamp_;
+	ros::Time last_time_stamp_;
 	bool is_first_measurement_;
 	int length_in_cells_;
 
