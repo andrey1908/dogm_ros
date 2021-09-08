@@ -25,14 +25,17 @@ SOFTWARE.
 
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/Transform.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <dogm/dogm.h>
 #include <dogm/dogm_types.h>
 #include <mapping/laser_to_meas_grid.h>
 #include <vector>
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 namespace dogm_ros
 {

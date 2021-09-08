@@ -16,6 +16,7 @@
   <depend>std_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
+  <depend>tf2_eigen</depend>
   
   <depend>time_measurer</depend>
 </package>

@@ -14,7 +14,7 @@ DOGMRosConverter::~DOGMRosConverter()
 void DOGMRosConverter::toDOGMMessage(const dogm::DOGM& dogm, dogm_msgs::DynamicOccupancyGrid& message)
 {
   message.header.stamp = ros::Time::now();
-  message.header.frame_id = "velodyne";
+  message.header.frame_id = "base_link";
   message.info.resolution = dogm.getResolution();
   message.info.length = dogm.getGridSize() * dogm.getResolution();
   message.info.size = dogm.getGridSize();
