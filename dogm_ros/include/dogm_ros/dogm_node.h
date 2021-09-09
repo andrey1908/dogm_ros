@@ -48,7 +48,7 @@ public:
 	void process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid);
 
 private:
-	void projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid);
+	void projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold = 0.5);
 	
 private:
 	ros::NodeHandle nh_;

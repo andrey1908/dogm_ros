@@ -52,7 +52,7 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 	grid_map_.reset(new dogm::DOGM(params_));
 	meas_grid_.resize(grid_map_->grid_cell_count);
 
-	subscriber_ = nh_.subscribe("grid_map", 1, &DOGMRos::process, this);
+	subscriber_ = nh_.subscribe("static_map", 1, &DOGMRos::process, this);
 	publisher_ = nh_.advertise<dogm_msgs::DynamicOccupancyGrid>("dynamic_map", 1);
 }
 
@@ -93,7 +93,7 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 	STOP_TIME_MESUREMENT(Visualization);
 }
 
-void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid) {
+void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold /* 0.5 */) {
 	geometry_msgs::TransformStamped robot_pose;
     robot_pose = tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, "base_link", ros::Time(0), ros::Duration(0.2));
 	Eigen::Isometry3d eigen_robot_pose = tf2::transformToEigen(robot_pose);
@@ -107,6 +107,7 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 
 	Eigen::Isometry3d grid_to_robot = eigen_grid_pose.inverse() * eigen_robot_pose;
 	
+	const float eps = 0.00001;
 	for (int x = 0; x < grid_map_->grid_size; x++) {
 		for (int y = 0; y < grid_map_->grid_size; y++) {
 			double robot_x = x - grid_map_->grid_size / 2. + 0.5;
@@ -119,21 +120,21 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 			int grid_y = static_cast<int>(grid_coord(1) / occupancy_grid->info.resolution);
 			int meas_idx = x + y * grid_map_->grid_size;
 			if (grid_x < 0 || grid_y < 0 || grid_x >= occupancy_grid->info.width || grid_y >= occupancy_grid->info.height) {
-				meas_grid_[meas_idx].free_mass = 0.00001;
-				meas_grid_[meas_idx].occ_mass = 0.00001;
+				meas_grid_[meas_idx].free_mass = eps;
+				meas_grid_[meas_idx].occ_mass = eps;
 				continue;
 			}
 			int idx = grid_x + grid_y * occupancy_grid->info.width;
-			int8_t occ = occupancy_grid->data[idx];
-			if (occ == -1) {
-				meas_grid_[meas_idx].free_mass = 0.00001;
-				meas_grid_[meas_idx].occ_mass = 0.00001;
-			} else if (occ < 50) {
-				meas_grid_[meas_idx].free_mass = 1 - occ / 100.;
-				meas_grid_[meas_idx].occ_mass = 0.00001;
+			float occ = occupancy_grid->data[idx] / 100.;
+			if (occ < 0) {
+				meas_grid_[meas_idx].free_mass = eps;
+				meas_grid_[meas_idx].occ_mass = eps;
+			} else if (occ < occupancy_threshold) {
+				meas_grid_[meas_idx].free_mass = 1 - occ;
+				meas_grid_[meas_idx].occ_mass = eps;
 			} else {
-				meas_grid_[meas_idx].free_mass = 0.00001;
-				meas_grid_[meas_idx].occ_mass = 0.95;
+				meas_grid_[meas_idx].free_mass = eps;
+				meas_grid_[meas_idx].occ_mass = occ;
 			}
 			meas_grid_[meas_idx].likelihood = 1.0f;
 			meas_grid_[meas_idx].p_A = 1.0f;
