@@ -58,6 +58,7 @@ private:
 	ros::Publisher publisher_;
 	
 	dogm::DOGM::Params params_;
+	bool opencv_visualization_;
 	
 	ros::Time last_time_stamp_;
 	bool is_first_measurement_;

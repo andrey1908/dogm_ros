@@ -49,6 +49,8 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 	private_nh_.param("particles/velocity_persistent", params_.stddev_velocity, 30.0f);
 	private_nh_.param("particles/velocity_birth", params_.init_max_velocity, 30.0f);
 
+	private_nh_.param("opencv_visualization", opencv_visualization_, false);
+
 	grid_map_.reset(new dogm::DOGM(params_));
 	meas_grid_.resize(grid_map_->grid_cell_count);
 
@@ -84,13 +86,15 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
     
 	publisher_.publish(message);
 
-	MEASURE_TIME_FROM_HERE(Visualization);
-	cv::Mat occupancy_image = grid_map_->getOccupancyImage();
-	grid_map_->drawVelocities(occupancy_image);
-	cv::namedWindow("occupancy_image", cv::WINDOW_NORMAL);
-	cv::imshow("occupancy_image", occupancy_image);
-	cv::waitKey(1);
-	STOP_TIME_MESUREMENT(Visualization);
+	if (opencv_visualization_) {
+		MEASURE_TIME_FROM_HERE(Visualization);
+		cv::Mat occupancy_image = grid_map_->getOccupancyImage();
+		grid_map_->drawVelocities(occupancy_image);
+		cv::namedWindow("occupancy_image", cv::WINDOW_NORMAL);
+		cv::imshow("occupancy_image", occupancy_image);
+		cv::waitKey(1);
+		STOP_TIME_MESUREMENT(Visualization);
+	}
 }
 
 void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold /* 0.5 */) {
@@ -107,7 +111,7 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 
 	Eigen::Isometry3d grid_to_robot = eigen_grid_pose.inverse() * eigen_robot_pose;
 	
-	const float eps = 0.00001;
+	const float eps = 0.0001;
 	for (int x = 0; x < grid_map_->grid_size; x++) {
 		for (int y = 0; y < grid_map_->grid_size; y++) {
 			double robot_x = x - grid_map_->grid_size / 2. + 0.5;
@@ -130,11 +134,11 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 				meas_grid_[meas_idx].free_mass = eps;
 				meas_grid_[meas_idx].occ_mass = eps;
 			} else if (occ < occupancy_threshold) {
-				meas_grid_[meas_idx].free_mass = 1 - occ;
+				meas_grid_[meas_idx].free_mass = std::max(eps, std::min(1 - eps, 1 - occ));
 				meas_grid_[meas_idx].occ_mass = eps;
 			} else {
 				meas_grid_[meas_idx].free_mass = eps;
-				meas_grid_[meas_idx].occ_mass = occ;
+				meas_grid_[meas_idx].occ_mass = std::max(eps, std::min(1 - eps, occ));
 			}
 			meas_grid_[meas_idx].likelihood = 1.0f;
 			meas_grid_[meas_idx].p_A = 1.0f;
