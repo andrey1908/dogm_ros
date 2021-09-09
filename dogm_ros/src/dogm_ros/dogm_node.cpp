@@ -49,6 +49,7 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 	private_nh_.param("particles/velocity_persistent", params_.stddev_velocity, 30.0f);
 	private_nh_.param("particles/velocity_birth", params_.init_max_velocity, 30.0f);
 
+	private_nh_.param("robot_frame_id", robot_frame_id_, std::string("base_link"));
 	private_nh_.param("opencv_visualization", opencv_visualization_, false);
 
 	grid_map_.reset(new dogm::DOGM(params_));
@@ -81,7 +82,7 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 	
 	MEASURE_TIME_FROM_HERE(DynamicMap2ROSMessage);
 	dogm_msgs::DynamicOccupancyGrid message;
-    dogm_ros::DOGMRosConverter::toDOGMMessage(*grid_map_, message);
+    dogm_ros::DOGMRosConverter::toDOGMMessage(*grid_map_, message, robot_frame_id_);
 	STOP_TIME_MESUREMENT(DynamicMap2ROSMessage);
     
 	publisher_.publish(message);
@@ -99,7 +100,7 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 
 void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold /* 0.5 */) {
 	geometry_msgs::TransformStamped robot_pose;
-    robot_pose = tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, "base_link", ros::Time(0), ros::Duration(0.2));
+    robot_pose = tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, robot_frame_id_, occupancy_grid->header.stamp);
 	Eigen::Isometry3d eigen_robot_pose = tf2::transformToEigen(robot_pose);
 
 	geometry_msgs::Transform grid_pose;

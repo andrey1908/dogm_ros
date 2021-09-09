@@ -20,7 +20,7 @@ public:
 
   virtual ~DOGMRosConverter();
 
-  static void toDOGMMessage(const dogm::DOGM& dogm, dogm_msgs::DynamicOccupancyGrid& message);
+  static void toDOGMMessage(const dogm::DOGM& dogm, dogm_msgs::DynamicOccupancyGrid& message, const std::string& robot_frame_id);
 
   static void toOccupancyGridMessage(const dogm::DOGM& dogm, nav_msgs::OccupancyGrid& message);
 };

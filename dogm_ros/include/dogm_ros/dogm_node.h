@@ -58,6 +58,7 @@ private:
 	ros::Publisher publisher_;
 	
 	dogm::DOGM::Params params_;
+	std::string robot_frame_id_;
 	bool opencv_visualization_;
 	
 	ros::Time last_time_stamp_;
