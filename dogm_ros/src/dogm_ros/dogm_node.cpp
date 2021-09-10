@@ -30,6 +30,13 @@ SOFTWARE.
 
 #include <dogm_msgs/DynamicOccupancyGrid.h>
 
+#include <tf2_eigen/tf2_eigen.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/Transform.h>
+
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
 #include "time_measurer.h"
 
 namespace dogm_ros
