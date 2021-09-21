@@ -55,12 +55,16 @@ private:
 	dogm::DOGM::Params params_;
 	std::string robot_frame_id_;
 	bool opencv_visualization_;
+	float vis_occupancy_threshold_;
+	float vis_mahalanobis_distance_;
 	
 	ros::Time last_time_stamp_;
 	bool is_first_measurement_;
 	
 	boost::shared_ptr<dogm::DOGM> grid_map_;
 	std::vector<dogm::MeasurementCell> meas_grid_;
+	float new_x_;
+	float new_y_;
 
 	tf2_ros::Buffer tf_buffer_;
 	tf2_ros::TransformListener tf_listener_;

@@ -11,10 +11,10 @@ DOGMRosConverter::~DOGMRosConverter()
 {
 }
 
-void DOGMRosConverter::toDOGMMessage(const dogm::DOGM& dogm, dogm_msgs::DynamicOccupancyGrid& message, const std::string& robot_frame_id)
+void DOGMRosConverter::toDOGMMessage(const dogm::DOGM& dogm, dogm_msgs::DynamicOccupancyGrid& message, const std::string& frame_id)
 {
   message.header.stamp = ros::Time::now();
-  message.header.frame_id = robot_frame_id;
+  message.header.frame_id = frame_id;
   message.info.resolution = dogm.getResolution();
   message.info.length = dogm.getGridSize() * dogm.getResolution();
   message.info.size = dogm.getGridSize();

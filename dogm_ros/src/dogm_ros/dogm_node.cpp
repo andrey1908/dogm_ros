@@ -58,6 +58,8 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 
 	private_nh_.param("robot_frame_id", robot_frame_id_, std::string("base_link"));
 	private_nh_.param("opencv_visualization", opencv_visualization_, false);
+	private_nh_.param("vis_occupancy_threshold", vis_occupancy_threshold_, 0.6f);
+	private_nh_.param("vis_mahalanobis_distance", vis_mahalanobis_distance_, 1.0f);
 
 	grid_map_.reset(new dogm::DOGM(params_));
 	meas_grid_.resize(grid_map_->grid_cell_count);
@@ -77,11 +79,11 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 	if (!is_first_measurement_)
 	{
 		float dt = (time_stamp - last_time_stamp_).toSec();
-		grid_map_->updateGrid(meas_grid_.data(), -params_.size / 2, -params_.size / 2, 0, dt, false);
+		grid_map_->updateGrid(meas_grid_.data(), new_x_, new_y_, 0, dt, false);
 	}
 	else
 	{
-		grid_map_->updateGrid(meas_grid_.data(), -params_.size / 2, -params_.size / 2, 0, 0, false);
+		grid_map_->updateGrid(meas_grid_.data(), new_x_, new_y_, 0, 0, false);
 		is_first_measurement_ = false;
 	}
 	last_time_stamp_ = time_stamp;
@@ -89,15 +91,16 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 	
 	MEASURE_TIME_FROM_HERE(DynamicMap2ROSMessage);
 	dogm_msgs::DynamicOccupancyGrid message;
-    dogm_ros::DOGMRosConverter::toDOGMMessage(*grid_map_, message, robot_frame_id_);
+    dogm_ros::DOGMRosConverter::toDOGMMessage(*grid_map_, message, occupancy_grid->header.frame_id);
 	STOP_TIME_MESUREMENT(DynamicMap2ROSMessage);
     
 	publisher_.publish(message);
 
-	if (opencv_visualization_) {
+	if (opencv_visualization_)
+	{
 		MEASURE_TIME_FROM_HERE(Visualization);
 		cv::Mat occupancy_image = grid_map_->getOccupancyImage();
-		grid_map_->drawVelocities(occupancy_image);
+		grid_map_->drawVelocities(occupancy_image, 4., 1., vis_occupancy_threshold_, vis_mahalanobis_distance_);
 		cv::namedWindow("occupancy_image", cv::WINDOW_NORMAL);
 		cv::imshow("occupancy_image", occupancy_image);
 		cv::waitKey(1);
@@ -105,10 +108,21 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 	}
 }
 
-void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold /* 0.5 */) {
+void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold /* 0.5 */)
+{
 	geometry_msgs::TransformStamped robot_pose;
     robot_pose = tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, robot_frame_id_, occupancy_grid->header.stamp);
 	Eigen::Isometry3d eigen_robot_pose = tf2::transformToEigen(robot_pose);
+
+	Eigen::Vector3d translation = eigen_robot_pose * Eigen::Vector3d(0, 0, 0);
+	translation(0) -= grid_map_->grid_size / 2. * params_.resolution;
+	translation(1) -= grid_map_->grid_size / 2. * params_.resolution;
+	translation(2) = 0;
+	Eigen::Isometry3d eigen_dynamic_grid_origin;
+	eigen_dynamic_grid_origin.setIdentity();
+	eigen_dynamic_grid_origin.translate(translation);
+	new_x_ = translation(0);
+	new_y_ = translation(1);
 
 	geometry_msgs::Transform grid_pose;
 	grid_pose.rotation = occupancy_grid->info.origin.orientation;
@@ -117,34 +131,42 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 	grid_pose.translation.z = occupancy_grid->info.origin.position.z;
 	Eigen::Isometry3d eigen_grid_pose = tf2::transformToEigen(grid_pose);
 
-	Eigen::Isometry3d grid_to_robot = eigen_grid_pose.inverse() * eigen_robot_pose;
+	Eigen::Isometry3d transform = eigen_grid_pose.inverse() * eigen_dynamic_grid_origin;
 	
 	const float eps = 0.0001;
-	for (int x = 0; x < grid_map_->grid_size; x++) {
-		for (int y = 0; y < grid_map_->grid_size; y++) {
-			double robot_x = x - grid_map_->grid_size / 2. + 0.5;
-			double robot_y = y - grid_map_->grid_size / 2. + 0.5;
+	for (int x = 0; x < grid_map_->grid_size; x++)
+	{
+		for (int y = 0; y < grid_map_->grid_size; y++)
+		{
+			double robot_x = x;
+			double robot_y = y;
 			robot_x *= params_.resolution;
 			robot_y *= params_.resolution;
 			Eigen::Vector3d robot_coord = {robot_x, robot_y, 0};
-			Eigen::Vector3d grid_coord = grid_to_robot * robot_coord;
+			Eigen::Vector3d grid_coord = transform * robot_coord;
 			int grid_x = static_cast<int>(grid_coord(0) / occupancy_grid->info.resolution);
 			int grid_y = static_cast<int>(grid_coord(1) / occupancy_grid->info.resolution);
 			int meas_idx = x + y * grid_map_->grid_size;
-			if (grid_x < 0 || grid_y < 0 || grid_x >= occupancy_grid->info.width || grid_y >= occupancy_grid->info.height) {
+			if (grid_x < 0 || grid_y < 0 || grid_x >= occupancy_grid->info.width || grid_y >= occupancy_grid->info.height)
+			{
 				meas_grid_[meas_idx].free_mass = eps;
 				meas_grid_[meas_idx].occ_mass = eps;
 				continue;
 			}
 			int idx = grid_x + grid_y * occupancy_grid->info.width;
 			float occ = occupancy_grid->data[idx] / 100.;
-			if (occ < 0) {
+			if (occ < 0)
+			{
 				meas_grid_[meas_idx].free_mass = eps;
 				meas_grid_[meas_idx].occ_mass = eps;
-			} else if (occ < occupancy_threshold) {
+			}
+			else if (occ < occupancy_threshold)
+			{
 				meas_grid_[meas_idx].free_mass = std::max(eps, std::min(1 - eps, 1 - occ));
 				meas_grid_[meas_idx].occ_mass = eps;
-			} else {
+			}
+			else
+			{
 				meas_grid_[meas_idx].free_mass = eps;
 				meas_grid_[meas_idx].occ_mass = std::max(eps, std::min(1 - eps, occ));
 			}
