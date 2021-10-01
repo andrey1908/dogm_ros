@@ -105,7 +105,7 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 	{
 		MEASURE_TIME_FROM_HERE(Visualization);
 		cv::Mat occupancy_image = grid_map_->getOccupancyImage();
-		grid_map_->drawVelocities(occupancy_image, 4., 1., vis_occupancy_threshold_, vis_mahalanobis_distance_);
+		grid_map_->drawVelocities(occupancy_image, 2., 1., vis_occupancy_threshold_, vis_mahalanobis_distance_);
 		cv::namedWindow("occupancy_image", cv::WINDOW_NORMAL);
 		cv::imshow("occupancy_image", occupancy_image);
 		cv::waitKey(1);
@@ -115,43 +115,42 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 
 void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold /* 0.5 */)
 {
-	geometry_msgs::TransformStamped odom_to_robot =
-		tf_buffer_.lookupTransform(occupancy_grid->header.frame_id,robot_frame_id_, occupancy_grid->header.stamp, ros::Duration(0.15));
-	cv::Mat opencv_odom_to_dynamic_grid(cv::Mat::eye(cv::Size(3, 3), CV_64F));
-	opencv_odom_to_dynamic_grid.at<double>(0, 2) = odom_to_robot.transform.translation.x / params_.resolution - grid_map_->grid_size / 2.;
-	opencv_odom_to_dynamic_grid.at<double>(1, 2) = odom_to_robot.transform.translation.y / params_.resolution - grid_map_->grid_size / 2.;
-	new_x_ = opencv_odom_to_dynamic_grid.at<double>(0, 2) * params_.resolution;
-	new_y_ = opencv_odom_to_dynamic_grid.at<double>(1, 2) * params_.resolution;
+	geometry_msgs::TransformStamped map_to_robot =
+		tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, robot_frame_id_, occupancy_grid->header.stamp, ros::Duration(0.15));
+	cv::Mat opencv_map_to_measurement_grid(cv::Mat::eye(cv::Size(3, 3), CV_32F));
+	opencv_map_to_measurement_grid.at<float>(0, 2) = map_to_robot.transform.translation.x / params_.resolution - grid_map_->grid_size / 2.;
+	opencv_map_to_measurement_grid.at<float>(1, 2) = map_to_robot.transform.translation.y / params_.resolution - grid_map_->grid_size / 2.;
+	new_x_ = opencv_map_to_measurement_grid.at<float>(0, 2) * params_.resolution;
+	new_y_ = opencv_map_to_measurement_grid.at<float>(1, 2) * params_.resolution;
 
-	cv::Mat scale_dynamic_grid_to_static_grid = cv::Mat::eye(cv::Size(3, 3), CV_64F);
-	double scale = occupancy_grid->info.resolution / params_.resolution;
-	scale_dynamic_grid_to_static_grid.at<double>(0, 0) *= scale;
-	scale_dynamic_grid_to_static_grid.at<double>(1, 1) *= scale;
+	cv::Mat scale_measurement_grid_to_occupancy_grid(cv::Mat::eye(cv::Size(3, 3), CV_32F));
+	float scale = occupancy_grid->info.resolution / params_.resolution;
+	scale_measurement_grid_to_occupancy_grid.at<float>(0, 0) *= scale;
+	scale_measurement_grid_to_occupancy_grid.at<float>(1, 1) *= scale;
 
-	Eigen::Quaterniond eigen_odom_to_static_grid_rotation_quaternion;
-	eigen_odom_to_static_grid_rotation_quaternion.x() = occupancy_grid->info.origin.orientation.x;
-	eigen_odom_to_static_grid_rotation_quaternion.y() = occupancy_grid->info.origin.orientation.y;
-	eigen_odom_to_static_grid_rotation_quaternion.z() = occupancy_grid->info.origin.orientation.z;
-	eigen_odom_to_static_grid_rotation_quaternion.w() = occupancy_grid->info.origin.orientation.w;
-	Eigen::Matrix3d eigen_odom_to_static_grid_rotation = eigen_odom_to_static_grid_rotation_quaternion.normalized().toRotationMatrix();
-	Eigen::Matrix2d eigen_odom_to_static_grid_rotation_2d = eigen_odom_to_static_grid_rotation.block<2, 2>(0, 0);
-	cv::Mat opencv_odom_to_static_grid(cv::Mat::eye(cv::Size(3, 3), CV_64F));
-	cv::eigen2cv(eigen_odom_to_static_grid_rotation_2d, opencv_odom_to_static_grid(cv::Range(0, 2), cv::Range(0, 2)));
-	opencv_odom_to_static_grid.at<double>(0, 2) = occupancy_grid->info.origin.position.x / occupancy_grid->info.resolution;
-	opencv_odom_to_static_grid.at<double>(1, 2) = occupancy_grid->info.origin.position.y / occupancy_grid->info.resolution;
+	Eigen::Quaternionf eigen_map_to_occupancy_grid_rotation_quaternion;
+	eigen_map_to_occupancy_grid_rotation_quaternion.x() = occupancy_grid->info.origin.orientation.x;
+	eigen_map_to_occupancy_grid_rotation_quaternion.y() = occupancy_grid->info.origin.orientation.y;
+	eigen_map_to_occupancy_grid_rotation_quaternion.z() = occupancy_grid->info.origin.orientation.z;
+	eigen_map_to_occupancy_grid_rotation_quaternion.w() = occupancy_grid->info.origin.orientation.w;
+	Eigen::Matrix3f eigen_map_to_occupancy_grid_rotation = eigen_map_to_occupancy_grid_rotation_quaternion.normalized().toRotationMatrix();
+	Eigen::Matrix2f eigen_map_to_occupancy_grid_rotation_2d = eigen_map_to_occupancy_grid_rotation.block<2, 2>(0, 0);
+	cv::Mat opencv_map_to_occupancy_grid(cv::Mat::eye(cv::Size(3, 3), CV_32F));
+	cv::eigen2cv(eigen_map_to_occupancy_grid_rotation_2d, opencv_map_to_occupancy_grid(cv::Range(0, 2), cv::Range(0, 2)));
+	opencv_map_to_occupancy_grid.at<float>(0, 2) = occupancy_grid->info.origin.position.x / occupancy_grid->info.resolution;
+	opencv_map_to_occupancy_grid.at<float>(1, 2) = occupancy_grid->info.origin.position.y / occupancy_grid->info.resolution;
 
-	cv::Mat dynamic_grid_to_static_grid = opencv_odom_to_dynamic_grid.inv() * scale_dynamic_grid_to_static_grid * opencv_odom_to_static_grid;
+	cv::Mat measurement_grid_to_occupancy_grid =
+		opencv_map_to_measurement_grid.inv() * scale_measurement_grid_to_occupancy_grid * opencv_map_to_occupancy_grid;
 
 	std::vector<signed char> occupancy_grid_data(occupancy_grid->data);
-	cv::Mat static_grid_host(cv::Size(occupancy_grid->info.width, occupancy_grid->info.height), CV_8S, occupancy_grid_data.data());
-	static_grid_host.convertTo(static_grid_host, CV_32S);
-	cv::cuda::GpuMat static_grid;
-	static_grid.upload(static_grid_host);
-	cv::cuda::GpuMat transformed_static_grid;
-	cv::cuda::warpAffine(static_grid, transformed_static_grid, dynamic_grid_to_static_grid(cv::Range(0, 2), cv::Range(0, 3)),
+	cv::Mat occupancy_grid_host(cv::Size(occupancy_grid->info.width, occupancy_grid->info.height), CV_8S, occupancy_grid_data.data());
+	occupancy_grid_host.convertTo(occupancy_grid_host, CV_32S);
+	cv::cuda::GpuMat occupancy_grid_device;
+	occupancy_grid_device.upload(occupancy_grid_host);
+	cv::cuda::warpAffine(occupancy_grid_device, occupancy_grid_device, measurement_grid_to_occupancy_grid(cv::Range(0, 2), cv::Range(0, 3)),
 		cv::Size(grid_map_->grid_size, grid_map_->grid_size), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(-1));
-	cv::Mat transformed_static_grid_host;
-	transformed_static_grid.download(transformed_static_grid_host);
+	occupancy_grid_device.download(occupancy_grid_host);
 	
 	const float eps = 0.0001;
 	for (int x = 0; x < grid_map_->grid_size; x++)
@@ -159,7 +158,7 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 		for (int y = 0; y < grid_map_->grid_size; y++)
 		{
 			int meas_idx = x + y * grid_map_->grid_size;
-			float occ = transformed_static_grid_host.at<int>(y, x) / 100.;
+			float occ = occupancy_grid_host.at<int>(y, x) / 100.;
 			if (occ < 0)
 			{
 				meas_grid_[meas_idx].free_mass = eps;
