@@ -117,6 +117,7 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 
 void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold /* 0.5 */)
 {
+	// get transform from map to measurement grid
 	geometry_msgs::TransformStamped map_to_robot =
 		tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, robot_frame_id_, occupancy_grid->header.stamp, ros::Duration(0.15));
 	cv::Mat opencv_map_to_measurement_grid(cv::Mat::eye(cv::Size(3, 3), CV_32F));
@@ -125,11 +126,13 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 	new_x_ = opencv_map_to_measurement_grid.at<float>(0, 2) * params_.resolution;
 	new_y_ = opencv_map_to_measurement_grid.at<float>(1, 2) * params_.resolution;
 
+	// get scale transform from measurement grid to occupancy grid
 	cv::Mat scale_measurement_grid_to_occupancy_grid(cv::Mat::eye(cv::Size(3, 3), CV_32F));
 	float scale = occupancy_grid->info.resolution / params_.resolution;
 	scale_measurement_grid_to_occupancy_grid.at<float>(0, 0) *= scale;
 	scale_measurement_grid_to_occupancy_grid.at<float>(1, 1) *= scale;
 
+	// get transform from map to occupancy grid
 	Eigen::Quaternionf eigen_map_to_occupancy_grid_rotation_quaternion;
 	eigen_map_to_occupancy_grid_rotation_quaternion.x() = occupancy_grid->info.origin.orientation.x;
 	eigen_map_to_occupancy_grid_rotation_quaternion.y() = occupancy_grid->info.origin.orientation.y;
@@ -142,9 +145,11 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 	opencv_map_to_occupancy_grid.at<float>(0, 2) = occupancy_grid->info.origin.position.x / occupancy_grid->info.resolution;
 	opencv_map_to_occupancy_grid.at<float>(1, 2) = occupancy_grid->info.origin.position.y / occupancy_grid->info.resolution;
 
+	// get transform from measurement grid to occupancy grid
 	cv::Mat measurement_grid_to_occupancy_grid =
 		opencv_map_to_measurement_grid.inv() * scale_measurement_grid_to_occupancy_grid * opencv_map_to_occupancy_grid;
 
+	// transform occupancy grid to measurement grid system
 	std::vector<signed char> occupancy_grid_data(occupancy_grid->data);
 	cv::Mat occupancy_grid_host(cv::Size(occupancy_grid->info.width, occupancy_grid->info.height), CV_8S, occupancy_grid_data.data());
 	occupancy_grid_host.convertTo(occupancy_grid_host, CV_32S);
