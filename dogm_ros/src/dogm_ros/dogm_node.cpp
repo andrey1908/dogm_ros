@@ -62,9 +62,11 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 	private_nh_.param("particles/velocity_birth", params_.init_max_velocity, 30.0f);
 
 	private_nh_.param("robot_frame_id", robot_frame_id_, std::string("base_link"));
+
 	private_nh_.param("opencv_visualization", opencv_visualization_, false);
 	private_nh_.param("vis_occupancy_threshold", vis_occupancy_threshold_, 0.6f);
 	private_nh_.param("vis_mahalanobis_distance", vis_mahalanobis_distance_, 1.0f);
+	private_nh_.param("vis_image_size", vis_image_size_, int(400));
 
 	grid_map_.reset(new dogm::DOGM(params_));
 	meas_grid_.resize(grid_map_->grid_cell_count);
@@ -105,7 +107,7 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 	{
 		MEASURE_TIME_FROM_HERE(Visualization);
 		cv::Mat occupancy_image = grid_map_->getOccupancyImage();
-		grid_map_->drawVelocities(occupancy_image, 2., 1., vis_occupancy_threshold_, vis_mahalanobis_distance_);
+		grid_map_->drawVelocities(occupancy_image, vis_image_size_, 1., vis_occupancy_threshold_, vis_mahalanobis_distance_);
 		cv::namedWindow("occupancy_image", cv::WINDOW_NORMAL);
 		cv::imshow("occupancy_image", occupancy_image);
 		cv::waitKey(1);

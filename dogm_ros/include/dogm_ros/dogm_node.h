@@ -57,6 +57,7 @@ private:
 	bool opencv_visualization_;
 	float vis_occupancy_threshold_;
 	float vis_mahalanobis_distance_;
+	int vis_image_size_;
 	
 	ros::Time last_time_stamp_;
 	bool is_first_measurement_;
