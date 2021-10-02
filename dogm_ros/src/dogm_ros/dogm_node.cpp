@@ -133,6 +133,9 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 	scale_measurement_grid_to_occupancy_grid.at<float>(1, 1) *= scale;
 
 	// get transform from map to occupancy grid
+	// strange bug: eigen matrices here should have different types (float or double) with
+	// eigen matrices in dogm.cu (dogm repository) in function drawVelocities(), otherwise
+	// the program will crash
 	Eigen::Quaternionf eigen_map_to_occupancy_grid_rotation_quaternion;
 	eigen_map_to_occupancy_grid_rotation_quaternion.x() = occupancy_grid->info.origin.orientation.x;
 	eigen_map_to_occupancy_grid_rotation_quaternion.y() = occupancy_grid->info.origin.orientation.y;
