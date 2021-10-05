@@ -65,7 +65,7 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 
 	private_nh_.param("opencv_visualization", opencv_visualization_, false);
 	private_nh_.param("vis_occupancy_threshold", vis_occupancy_threshold_, 0.6f);
-	private_nh_.param("vis_mahalanobis_distance", vis_mahalanobis_distance_, 1.0f);
+	private_nh_.param("vis_mahalanobis_distance", vis_mahalanobis_distance_, 6.0f);
 	private_nh_.param("vis_image_size", vis_image_size_, int(400));
 
 	grid_map_.reset(new dogm::DOGM(params_));

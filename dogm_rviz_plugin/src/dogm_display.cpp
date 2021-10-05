@@ -90,7 +90,7 @@ DOGMDisplay::DOGMDisplay()
   occ_property_->setMin(0.0f);
   occ_property_->setMax(1.0f);
 
-  mahalanobis_property_ = new rviz::FloatProperty("Mahalanobis distance", 1.0,
+  mahalanobis_property_ = new rviz::FloatProperty("Mahalanobis distance", 6.0,
                                                   "Mahalanobis distance at which object is considered dynamic.",
                                                   this);
   mahalanobis_property_->setMin(0.0f);
