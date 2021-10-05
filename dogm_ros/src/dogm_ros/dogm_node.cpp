@@ -52,8 +52,8 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 {
 	private_nh_.param("map/size", params_.size, 50.0f);
 	private_nh_.param("map/resolution", params_.resolution, 0.2f);
-	private_nh_.param("particles/particle_count", params_.particle_count, 3 * static_cast<int>(10e5));
-	private_nh_.param("particles/new_born_particle_count", params_.new_born_particle_count, 3 * static_cast<int>(10e4));
+	private_nh_.param("particles/particle_count", params_.particle_count, 3 * static_cast<int>(1e6));
+	private_nh_.param("particles/new_born_particle_count", params_.new_born_particle_count, 3 * static_cast<int>(1e5));
 	private_nh_.param("particles/persistence_probability", params_.persistence_prob, 0.99f);
 	private_nh_.param("particles/process_noise_position", params_.stddev_process_noise_position, 0.1f);
 	private_nh_.param("particles/process_noise_velocity", params_.stddev_process_noise_velocity, 1.0f);
@@ -117,6 +117,9 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 
 void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold /* 0.5 */)
 {
+	// TODO: use odom frame for computing coordinates for motion compensation.
+	// Now occupancy_grid's frame is used and it might be map frame.
+
 	// get transform from map to measurement grid
 	geometry_msgs::TransformStamped map_to_robot =
 		tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, robot_frame_id_, occupancy_grid->header.stamp, ros::Duration(0.15));
@@ -162,6 +165,7 @@ void DOGMRos::projectOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr& occu
 		cv::Size(grid_map_->grid_size, grid_map_->grid_size), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(-1));
 	occupancy_grid_device.download(occupancy_grid_host);
 	
+	// TODO: use GPU to convert transformed occupancy grid to measurement grid
 	const float eps = 0.0001;
 	for (int x = 0; x < grid_map_->grid_size; x++)
 	{
