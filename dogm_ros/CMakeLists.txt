@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(dogm_ros)
+project(dogm_ros LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake/modules/")
@@ -60,7 +60,7 @@ include_directories(
 ## Declare a cpp library
 add_library(${PROJECT_NAME}
   src/dogm_ros/dogm_ros_converter.cpp
-  src/dogm_ros/dogm_node.cpp
+  src/dogm_ros/dogm_node.cu
 )
 
 target_link_libraries(${PROJECT_NAME}

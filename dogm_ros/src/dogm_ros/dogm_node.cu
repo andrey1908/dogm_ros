@@ -47,6 +47,8 @@ SOFTWARE.
 namespace dogm_ros
 {
 
+__global__ void setUnknownAsFree(cv::cuda::PtrStepSzi occupancy_grid);
+
 DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh) 
 	: nh_(nh), private_nh_(private_nh), tf_buffer_(), tf_listener_(tf_buffer_), is_first_measurement_(true)
 {
@@ -152,11 +154,12 @@ void DOGMRos::occupancyGridToMeasurementGrid(const nav_msgs::OccupancyGrid::Cons
 	occupancy_grid_host.convertTo(occupancy_grid_host, CV_32S);
 	cv::cuda::GpuMat occupancy_grid_device;
 	occupancy_grid_device.upload(occupancy_grid_host);
+	setUnknownAsFree<<<(1, 1), (16, 16)>>>(occupancy_grid_device);
 
 	cv::Mat measurement_grid;
     cv::cuda::GpuMat measurement_grid_device;
 	cv::cuda::warpAffine(occupancy_grid_device, measurement_grid_device, measurement_grid_to_occupancy_grid(cv::Range(0, 2), cv::Range(0, 3)),
-		cv::Size(dogm_map_->grid_size, dogm_map_->grid_size), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(-1));
+		cv::Size(dogm_map_->grid_size, dogm_map_->grid_size), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0));
 	measurement_grid_device.download(measurement_grid);
 	
 	// TODO: use GPU to convert transformed occupancy grid to measurement grid
@@ -184,6 +187,24 @@ void DOGMRos::occupancyGridToMeasurementGrid(const nav_msgs::OccupancyGrid::Cons
 			}
 			measurement_grid_[meas_idx].likelihood = 1.0f;
 			measurement_grid_[meas_idx].p_A = 1.0f;
+		}
+	}
+}
+
+__global__ void setUnknownAsFree(cv::cuda::PtrStepSzi occupancy_grid)
+{
+	int start_row = blockIdx.y * blockDim.y + threadIdx.y;
+	int start_col = blockIdx.x * blockDim.x + threadIdx.x;
+	int step_row = blockDim.y * gridDim.y;
+	int step_col = blockDim.x * gridDim.x;
+	for (int row = start_row; row < occupancy_grid.rows; row += step_row)
+	{
+		for (int col = start_col; col < occupancy_grid.cols; col += step_col)
+		{
+			if (occupancy_grid(row, col) < 0)
+			{
+				occupancy_grid(row, col) = 0;
+			}
 		}
 	}
 }
