@@ -156,18 +156,20 @@ void DOGMRos::occupancyGridToMeasurementGrid(const nav_msgs::OccupancyGrid::Cons
 
 	cv::Mat measurement_grid_to_occupancy_grid = odom_to_measurement_grid.inv() * scale_measurement_grid * odom_to_occupancy_grid;
 
+	dim3 blocks(1, 1);
+	dim3 threads(16, 16);
 	std::vector<signed char> occupancy_grid_data(occupancy_grid->data);
 	cv::Mat occupancy_grid_host(cv::Size(occupancy_grid->info.width, occupancy_grid->info.height), CV_8S, occupancy_grid_data.data());
 	occupancy_grid_host.convertTo(occupancy_grid_host, CV_32S);
 	cv::cuda::GpuMat occupancy_grid_device;
 	occupancy_grid_device.upload(occupancy_grid_host);
-	setUnknownAsFree<<<(1, 1), (16, 16)>>>(occupancy_grid_device);
+	setUnknownAsFree<<<blocks, threads>>>(occupancy_grid_device);
 
 	cv::Mat measurement_grid;
     cv::cuda::GpuMat measurement_grid_device;
 	cv::cuda::warpAffine(occupancy_grid_device, measurement_grid_device, measurement_grid_to_occupancy_grid(cv::Range(0, 2), cv::Range(0, 3)),
 		cv::Size(dogm_map_->grid_size, dogm_map_->grid_size), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0));
-	fillMeasurementGrid<<<(1, 1), (16, 16)>>>(measurement_grid_, measurement_grid_device, occupancy_threshold);
+	fillMeasurementGrid<<<blocks, threads>>>(measurement_grid_, measurement_grid_device, occupancy_threshold);
 
 	CHECK_ERROR(cudaGetLastError());
 	CHECK_ERROR(cudaDeviceSynchronize());
