@@ -39,7 +39,7 @@ class DOGMRos
 {
 public:
 	DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh);
-	virtual ~DOGMRos() = default;
+	virtual ~DOGMRos();
 	void process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid);
 
 private:
@@ -63,7 +63,7 @@ private:
 	bool is_first_measurement_;
 	
 	boost::shared_ptr<dogm::DOGM> dogm_map_;
-	std::vector<dogm::MeasurementCell> measurement_grid_;
+	dogm::MeasurementCell* measurement_grid_;
 	float new_x_;
 	float new_y_;
 

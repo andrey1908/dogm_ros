@@ -48,6 +48,8 @@ namespace dogm_ros
 {
 
 __global__ void setUnknownAsFree(cv::cuda::PtrStepSzi occupancy_grid);
+__global__ void fillMeasurementGrid(dogm::MeasurementCell* __restrict__ measurement_grid, const cv::cuda::PtrStepSzi source,
+									float occupancy_threshold);
 
 DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh) 
 	: nh_(nh), private_nh_(private_nh), tf_buffer_(), tf_listener_(tf_buffer_), is_first_measurement_(true)
@@ -71,10 +73,15 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
 	private_nh_.param("vis_image_size", vis_image_size_, int(400));
 
 	dogm_map_.reset(new dogm::DOGM(params_));
-	measurement_grid_.resize(dogm_map_->grid_cell_count);
+	CHECK_ERROR(cudaMalloc(&measurement_grid_, dogm_map_->grid_cell_count * sizeof(dogm::MeasurementCell)));
 
 	subscriber_ = nh_.subscribe("static_map", 1, &DOGMRos::process, this);
 	publisher_ = nh_.advertise<dogm_msgs::DynamicOccupancyGrid>("dynamic_map", 1);
+}
+
+DOGMRos::~DOGMRos()
+{
+	CHECK_ERROR(cudaFree(measurement_grid_));
 }
 
 void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
@@ -88,11 +95,11 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 	if (!is_first_measurement_)
 	{
 		float dt = (time_stamp - last_time_stamp_).toSec();
-		dogm_map_->updateGrid(measurement_grid_.data(), new_x_, new_y_, 0, dt, false);
+		dogm_map_->updateGrid(measurement_grid_, new_x_, new_y_, 0, dt);
 	}
 	else
 	{
-		dogm_map_->updateGrid(measurement_grid_.data(), new_x_, new_y_, 0, 0, false);
+		dogm_map_->updateGrid(measurement_grid_, new_x_, new_y_, 0, 0);
 		is_first_measurement_ = false;
 	}
 	last_time_stamp_ = time_stamp;
@@ -160,35 +167,10 @@ void DOGMRos::occupancyGridToMeasurementGrid(const nav_msgs::OccupancyGrid::Cons
     cv::cuda::GpuMat measurement_grid_device;
 	cv::cuda::warpAffine(occupancy_grid_device, measurement_grid_device, measurement_grid_to_occupancy_grid(cv::Range(0, 2), cv::Range(0, 3)),
 		cv::Size(dogm_map_->grid_size, dogm_map_->grid_size), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0));
-	measurement_grid_device.download(measurement_grid);
-	
-	// TODO: use GPU to convert transformed occupancy grid to measurement grid
-	const float eps = 0.0001;
-	for (int x = 0; x < dogm_map_->grid_size; x++)
-	{
-		for (int y = 0; y < dogm_map_->grid_size; y++)
-		{
-			int meas_idx = x + y * dogm_map_->grid_size;
-			float occ = measurement_grid.at<int>(y, x) / 100.;
-			if (occ < 0)
-			{
-				measurement_grid_[meas_idx].free_mass = eps;
-				measurement_grid_[meas_idx].occ_mass = eps;
-			}
-			else if (occ < occupancy_threshold)
-			{
-				measurement_grid_[meas_idx].free_mass = std::max(eps, std::min(1 - eps, 1 - occ));
-				measurement_grid_[meas_idx].occ_mass = eps;
-			}
-			else
-			{
-				measurement_grid_[meas_idx].free_mass = eps;
-				measurement_grid_[meas_idx].occ_mass = std::max(eps, std::min(1 - eps, occ));
-			}
-			measurement_grid_[meas_idx].likelihood = 1.0f;
-			measurement_grid_[meas_idx].p_A = 1.0f;
-		}
-	}
+	fillMeasurementGrid<<<(1, 1), (16, 16)>>>(measurement_grid_, measurement_grid_device, occupancy_threshold);
+
+	CHECK_ERROR(cudaGetLastError());
+	CHECK_ERROR(cudaDeviceSynchronize());
 }
 
 __global__ void setUnknownAsFree(cv::cuda::PtrStepSzi occupancy_grid)
@@ -205,6 +187,44 @@ __global__ void setUnknownAsFree(cv::cuda::PtrStepSzi occupancy_grid)
 			{
 				occupancy_grid(row, col) = 0;
 			}
+		}
+	}
+}
+
+__device__ float clip(float x, float min, float max)
+{
+	assert(min <= max);
+	if (x < min) return min;
+	if (x > max) return max;
+	return x;
+}
+
+__global__ void fillMeasurementGrid(dogm::MeasurementCell* __restrict__ measurement_grid, const cv::cuda::PtrStepSzi source,
+									float occupancy_threshold)
+{
+	int start_row = blockIdx.y * blockDim.y + threadIdx.y;
+	int start_col = blockIdx.x * blockDim.x + threadIdx.x;
+	int step_row = blockDim.y * gridDim.y;
+	int step_col = blockDim.x * gridDim.x;
+	const float eps = 0.0001f;
+	for (int row = start_row; row < source.rows; row += step_row)
+	{
+		for (int col = start_col; col < source.cols; col += step_col)
+		{
+			int index = col + row * source.cols;
+			float occ = source(row, col) / 100.f;
+			if (occ < occupancy_threshold)
+			{
+				measurement_grid[index].free_mass = clip(1 - occ, eps, 1 - eps);
+				measurement_grid[index].occ_mass = eps;
+			}
+			else
+			{
+				measurement_grid[index].free_mass = eps;
+				measurement_grid[index].occ_mass = clip(occ, eps, 1 - eps);
+			}
+			measurement_grid[index].likelihood = 1.0f;
+			measurement_grid[index].p_A = 1.0f;
 		}
 	}
 }
