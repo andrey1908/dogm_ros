@@ -47,7 +47,7 @@ SOFTWARE.
 namespace dogm_ros
 {
 
-__global__ void setUnknownAsFree(cv::cuda::PtrStepSzi occupancy_grid);
+__global__ void setUnknownAsFree(cv::cuda::PtrStepSz<signed char> occupancy_grid);
 __global__ void fillMeasurementGrid(dogm::MeasurementCell* __restrict__ measurement_grid, const cv::cuda::PtrStepSzi source,
 									float occupancy_threshold);
 
@@ -160,10 +160,10 @@ void DOGMRos::occupancyGridToMeasurementGrid(const nav_msgs::OccupancyGrid::Cons
 	dim3 threads(16, 16);
 	std::vector<signed char> occupancy_grid_data(occupancy_grid->data);
 	cv::Mat occupancy_grid_host(cv::Size(occupancy_grid->info.width, occupancy_grid->info.height), CV_8S, occupancy_grid_data.data());
-	occupancy_grid_host.convertTo(occupancy_grid_host, CV_32S);
 	cv::cuda::GpuMat occupancy_grid_device;
 	occupancy_grid_device.upload(occupancy_grid_host);
 	setUnknownAsFree<<<blocks, threads>>>(occupancy_grid_device);
+	occupancy_grid_device.convertTo(occupancy_grid_device, CV_32S);
 
 	cv::Mat measurement_grid;
     cv::cuda::GpuMat measurement_grid_device;
@@ -175,7 +175,7 @@ void DOGMRos::occupancyGridToMeasurementGrid(const nav_msgs::OccupancyGrid::Cons
 	CHECK_ERROR(cudaDeviceSynchronize());
 }
 
-__global__ void setUnknownAsFree(cv::cuda::PtrStepSzi occupancy_grid)
+__global__ void setUnknownAsFree(cv::cuda::PtrStepSz<signed char> occupancy_grid)
 {
 	int start_row = blockIdx.y * blockDim.y + threadIdx.y;
 	int start_col = blockIdx.x * blockDim.x + threadIdx.x;
