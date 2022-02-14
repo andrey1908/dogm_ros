@@ -88,7 +88,7 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 {
 	MEASURE_TIME_FROM_HERE(OccupancyGrid2MeasurementGrid);
 	occupancyGridToMeasurementGrid(occupancy_grid);
-	STOP_TIME_MESUREMENT(OccupancyGrid2MeasurementGrid);
+	STOP_TIME_MEASUREMENT(OccupancyGrid2MeasurementGrid);
 	
 	MEASURE_TIME_FROM_HERE(UpdateDynamicMap);
 	ros::Time time_stamp = occupancy_grid->header.stamp;
@@ -103,12 +103,12 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 		is_first_measurement_ = false;
 	}
 	last_time_stamp_ = time_stamp;
-	STOP_TIME_MESUREMENT(UpdateDynamicMap);
+	STOP_TIME_MEASUREMENT(UpdateDynamicMap);
 	
 	MEASURE_TIME_FROM_HERE(DynamicMap2ROSMessage);
 	dogm_msgs::DynamicOccupancyGrid message;
     dogm_ros::DOGMRosConverter::toDOGMMessage(*dogm_map_, message, occupancy_grid->header.frame_id);
-	STOP_TIME_MESUREMENT(DynamicMap2ROSMessage);
+	STOP_TIME_MEASUREMENT(DynamicMap2ROSMessage);
     
 	publisher_.publish(message);
 
@@ -120,7 +120,7 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 		cv::namedWindow("occupancy_image", cv::WINDOW_NORMAL);
 		cv::imshow("occupancy_image", occupancy_image);
 		cv::waitKey(1);
-		STOP_TIME_MESUREMENT(Visualization);
+		STOP_TIME_MEASUREMENT(Visualization);
 	}
 }
 
