@@ -42,7 +42,7 @@ SOFTWARE.
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudawarping.hpp>
 
-#include "time_measurer.h"
+#include "time_measurer/time_measurer.h"
 
 namespace dogm_ros
 {
