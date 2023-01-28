@@ -3,6 +3,7 @@
 # Edit at https://www.gitignore.io/?templates=c++,cuda,cmake,linux,xcode,macos,windows,visualstudio
 
 .vscode
+docker/context
 
 ### C++ ###
 # Prerequisites
