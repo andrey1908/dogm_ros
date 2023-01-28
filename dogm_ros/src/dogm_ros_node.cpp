@@ -26,9 +26,9 @@ SOFTWARE.
 
 int main(int argc, char** argv)
 {
-	ros::init(argc, argv, "dogm_node");
-	dogm_ros::DOGMRos dogm(ros::NodeHandle(), ros::NodeHandle("~"));
-	ros::spin();
+    ros::init(argc, argv, "dogm_node");
+    dogm_ros::DOGMRos dogm(ros::NodeHandle(), ros::NodeHandle("~"));
+    ros::spin();
 
-	return 0;
+    return 0;
 }
