@@ -64,6 +64,7 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
     private_nh_.param("particles/birth_probability", params_.birth_prob, 0.02f);
     private_nh_.param("particles/velocity_persistent", params_.stddev_velocity, 30.0f);
     private_nh_.param("particles/velocity_birth", params_.init_max_velocity, 30.0f);
+    private_nh_.param("cells/freespace_discount", params_.freespace_discount, 0.35f);
 
     private_nh_.param("frame_id", frame_id_, std::string("base_link"));
 
