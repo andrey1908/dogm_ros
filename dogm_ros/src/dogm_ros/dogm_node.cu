@@ -97,11 +97,11 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
     if (!is_first_measurement_)
     {
         float dt = (time_stamp - last_time_stamp_).toSec();
-        dogm_map_->updateGrid(measurement_grid_, new_x_, new_y_, 0, dt);
+        dogm_map_->updateGrid(measurement_grid_, new_x_, new_y_, dt);
     }
     else
     {
-        dogm_map_->updateGrid(measurement_grid_, new_x_, new_y_, 0, 0);
+        dogm_map_->updateGrid(measurement_grid_, new_x_, new_y_, 0);
         is_first_measurement_ = false;
     }
     last_time_stamp_ = time_stamp;
