@@ -44,24 +44,23 @@ public:
 
 private:
     void occupancyGridToMeasurementGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold = 0.5);
-    
+
 private:
     ros::NodeHandle nh_;
     ros::NodeHandle private_nh_;
-    
+
     ros::Subscriber subscriber_;
     ros::Publisher publisher_;
-    
-    dogm::DOGM::Params params_;
+
     std::string frame_id_;
     bool opencv_visualization_;
     float vis_occupancy_threshold_;
     float vis_mahalanobis_distance_;
     int vis_image_size_;
-    
+
     ros::Time last_time_stamp_;
     bool is_first_measurement_;
-    
+
     boost::shared_ptr<dogm::DOGM> dogm_map_;
     dogm::MeasurementCell* measurement_grid_;
     float new_x_;

@@ -54,17 +54,18 @@ __global__ void fillMeasurementGrid(dogm::MeasurementCell* __restrict__ measurem
 DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh) 
     : nh_(nh), private_nh_(private_nh), tf_buffer_(), tf_listener_(tf_buffer_), is_first_measurement_(true)
 {
-    private_nh_.param("map/size", params_.size, 50.0f);
-    private_nh_.param("map/resolution", params_.resolution, 0.2f);
-    private_nh_.param("particles/particle_count", params_.particle_count, 3 * static_cast<int>(1e6));
-    private_nh_.param("particles/new_born_particle_count", params_.new_born_particle_count, 3 * static_cast<int>(1e5));
-    private_nh_.param("particles/persistence_probability", params_.persistence_prob, 0.99f);
-    private_nh_.param("particles/process_noise_position", params_.stddev_process_noise_position, 0.1f);
-    private_nh_.param("particles/process_noise_velocity", params_.stddev_process_noise_velocity, 1.0f);
-    private_nh_.param("particles/birth_probability", params_.birth_prob, 0.02f);
-    private_nh_.param("particles/velocity_persistent", params_.stddev_velocity, 30.0f);
-    private_nh_.param("particles/velocity_birth", params_.init_max_velocity, 30.0f);
-    private_nh_.param("cells/freespace_discount", params_.freespace_discount, 0.35f);
+    dogm::DOGM::Params params;
+    private_nh_.param("map/size", params.size, 50.0f);
+    private_nh_.param("map/resolution", params.resolution, 0.2f);
+    private_nh_.param("particles/particle_count", params.particle_count, 3 * static_cast<int>(1e6));
+    private_nh_.param("particles/new_born_particle_count", params.new_born_particle_count, 3 * static_cast<int>(1e5));
+    private_nh_.param("particles/persistence_prob", params.persistence_prob, 0.99f);
+    private_nh_.param("particles/stddev_process_noise_position", params.stddev_process_noise_position, 0.1f);
+    private_nh_.param("particles/stddev_process_noise_velocity", params.stddev_process_noise_velocity, 1.0f);
+    private_nh_.param("particles/birth_prob", params.birth_prob, 0.02f);
+    private_nh_.param("particles/stddev_velocity", params.stddev_velocity, 30.0f);
+    private_nh_.param("particles/init_max_velocity", params.init_max_velocity, 30.0f);
+    private_nh_.param("cells/freespace_discount", params.freespace_discount, 0.35f);
 
     private_nh_.param("frame_id", frame_id_, std::string("base_link"));
 
@@ -73,7 +74,7 @@ DOGMRos::DOGMRos(ros::NodeHandle nh, ros::NodeHandle private_nh)
     private_nh_.param("vis_mahalanobis_distance", vis_mahalanobis_distance_, 6.0f);
     private_nh_.param("vis_image_size", vis_image_size_, int(400));
 
-    dogm_map_.reset(new dogm::DOGM(params_));
+    dogm_map_.reset(new dogm::DOGM(params));
     CHECK_ERROR(cudaMalloc(&measurement_grid_, dogm_map_->grid_cell_count * sizeof(dogm::MeasurementCell)));
 
     subscriber_ = nh_.subscribe("static_map", 1, &DOGMRos::process, this);
@@ -127,16 +128,17 @@ void DOGMRos::process(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid)
 
 void DOGMRos::occupancyGridToMeasurementGrid(const nav_msgs::OccupancyGrid::ConstPtr& occupancy_grid, float occupancy_threshold /* 0.5 */)
 {
+    float resolution = dogm_map_->params.resolution;
     geometry_msgs::TransformStamped odom_to_robot =
         tf_buffer_.lookupTransform(occupancy_grid->header.frame_id, frame_id_, occupancy_grid->header.stamp, ros::Duration(0.15));
     cv::Mat odom_to_measurement_grid(cv::Mat::eye(cv::Size(3, 3), CV_32F));
-    odom_to_measurement_grid.at<float>(0, 2) = odom_to_robot.transform.translation.x / params_.resolution - dogm_map_->grid_size / 2.;
-    odom_to_measurement_grid.at<float>(1, 2) = odom_to_robot.transform.translation.y / params_.resolution - dogm_map_->grid_size / 2.;
-    new_x_ = odom_to_measurement_grid.at<float>(0, 2) * params_.resolution;
-    new_y_ = odom_to_measurement_grid.at<float>(1, 2) * params_.resolution;
+    odom_to_measurement_grid.at<float>(0, 2) = odom_to_robot.transform.translation.x / resolution - dogm_map_->grid_size / 2.;
+    odom_to_measurement_grid.at<float>(1, 2) = odom_to_robot.transform.translation.y / resolution - dogm_map_->grid_size / 2.;
+    new_x_ = odom_to_measurement_grid.at<float>(0, 2) * resolution;
+    new_y_ = odom_to_measurement_grid.at<float>(1, 2) * resolution;
 
     cv::Mat scale_measurement_grid(cv::Mat::eye(cv::Size(3, 3), CV_32F));
-    float scale = occupancy_grid->info.resolution / params_.resolution;
+    float scale = occupancy_grid->info.resolution / resolution;
     scale_measurement_grid.at<float>(0, 0) *= scale;
     scale_measurement_grid.at<float>(1, 1) *= scale;
 
